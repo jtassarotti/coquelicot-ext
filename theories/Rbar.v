@@ -978,3 +978,160 @@ Proof.
   apply f_equal, Rabs_pos_eq.
   now rewrite -Ropp_0 ; apply Ropp_le_contravar.
 Qed.
+
+Lemma is_Rbar_plus_ex_Rbar_plus v1 v2 r:
+  is_Rbar_plus v1 v2 r -> ex_Rbar_plus v1 v2.
+Proof. by rewrite /is_Rbar_plus/ex_Rbar_plus => ->. Qed.
+Lemma ex_Rbar_plus_is_Rbar_plus v1 v2:
+  ex_Rbar_plus v1 v2 -> is_Rbar_plus v1 v2 (Rbar_plus v1 v2).
+Proof. rewrite /is_Rbar_plus/ex_Rbar_plus/Rbar_plus. destruct (Rbar_plus' _ _) => //=. Qed.
+
+
+Require Import Iter.
+
+Definition Rbar_sum_n_m' (a : nat -> Rbar) n m :=
+  iter_nat (fun mx my => match mx, my with | Some x, Some y => Rbar_plus' x y | _, _ => None end)
+           (Some (Finite R0)) (fun x => Some (a x)) n m.
+Definition Rbar_sum_n' (a : nat -> Rbar) n :=
+  Rbar_sum_n_m' a O n.
+
+Definition Rbar_sum_n_m (a : nat -> Rbar) n m :=
+  iter_nat Rbar_plus R0 a n m.
+Definition Rbar_sum_n (a : nat -> Rbar) n :=
+  Rbar_sum_n_m a O n.
+
+Definition is_Rbar_sum_n_m (a : nat -> Rbar) n m v :=
+  Rbar_sum_n_m' a n m = Some v.
+Definition is_Rbar_sum_n (a : nat -> Rbar) n v :=
+  Rbar_sum_n' a n = Some v.
+
+Definition ex_Rbar_sum_n_m a n m := exists v, is_Rbar_sum_n_m a n m v.
+Definition ex_Rbar_sum_n a n := exists v, is_Rbar_sum_n a n v.
+
+Lemma Rbar_sum_n_m'_Some a n m v :
+  Rbar_sum_n_m' a n m = Some v -> Rbar_sum_n_m a n m = v.
+Proof.
+  rewrite /Rbar_sum_n_m/Rbar_sum_n_m'/iter_nat.
+  revert v. induction (seq.iota n (S m - n)) => v //=.
+  - congruence.
+  - intros Heq.
+    destruct (iter _ _ _ _) as [v'|] eqn:Heq'; last by congruence.
+    erewrite IHl; last done.
+    rewrite /Rbar_plus Heq //=.
+Qed.
+
+Lemma is_Rbar_sum_n_m_unique a n m v :
+  is_Rbar_sum_n_m a n m v -> Rbar_sum_n_m a n m = v.
+Proof. rewrite /is_Rbar_sum_n_m. apply Rbar_sum_n_m'_Some. Qed.
+Lemma is_Rbar_sum_n_unique a n v :
+  is_Rbar_sum_n a n v -> Rbar_sum_n a n = v.
+Proof. apply is_Rbar_sum_n_m_unique. Qed.
+
+Lemma Rbar_sum_n_m_correct a n m :
+  ex_Rbar_sum_n_m a n m -> is_Rbar_sum_n_m a n m (Rbar_sum_n_m a n m).
+Proof. destruct 1 as (?&His). by rewrite (is_Rbar_sum_n_m_unique _ _ _ _ His). Qed.
+Lemma Rbar_sum_n_correct a n :
+  ex_Rbar_sum_n a n -> is_Rbar_sum_n a n (Rbar_sum_n a n).
+Proof. destruct 1 as (?&His). by rewrite (is_Rbar_sum_n_unique _ _ _ His). Qed.
+
+Lemma is_Rbar_sum_n_m_Chasles (a : nat -> Rbar) (n m k : nat) v :
+  (n <= S m)%nat -> (m <= k)%nat
+  -> (is_Rbar_sum_n_m a n k v <->
+      (ex_Rbar_sum_n_m a n m /\
+       ex_Rbar_sum_n_m a (S m) k /\
+       is_Rbar_plus (Rbar_sum_n_m a n m) (Rbar_sum_n_m a (S m) k) v)).
+Proof.
+  intros Hnm Hmk.
+  rewrite /ex_Rbar_sum_n_m/is_Rbar_sum_n_m/Rbar_sum_n_m/Rbar_sum_n_m'.
+    rewrite (iter_nat_Chasles _ _ _ _ _ n m k); swap 1 5; eauto.
+    { intros []; last done. rewrite -{2}(Rbar_plus_0_l r) /Rbar_plus//=. destruct r; eauto. }
+    { intros [r0|] [r1|] [r2|]; try done.
+      * rewrite /Rbar_plus'. destruct r0, r1, r2 => //=. do 2 f_equal. ring.
+      * destruct (Rbar_plus' _ _); eauto.
+    }
+  split.
+    intros Heq.
+    destruct (iter_nat _ _ _ n m) eqn:Heq0;
+    destruct (iter_nat _ _ _ (S m) k) eqn:Heq1; try congruence.
+    split; [| split]; eauto.
+    rewrite /is_Rbar_plus -Heq. f_equal.
+    * by eapply Rbar_sum_n_m'_Some.
+    * by eapply Rbar_sum_n_m'_Some.
+  - intros ((v1&Hex1)&(v2&Hex2)&Hplus).
+    rewrite Hex1 Hex2. rewrite /is_Rbar_plus in Hplus. rewrite -Hplus. f_equal; symmetry.
+    * by eapply Rbar_sum_n_m'_Some.
+    * by eapply Rbar_sum_n_m'_Some.
+Qed.
+
+Lemma is_Rbar_sum_n_n (a : nat -> Rbar) (n : nat) :
+  is_Rbar_sum_n_m a n n (a n).
+Proof.
+  rewrite /is_Rbar_sum_n_m/Rbar_sum_n_m'.
+  rewrite iter_nat_point //=.
+  { intros []; last done. rewrite -{2}(Rbar_plus_0_r r) /Rbar_plus//=. destruct r; eauto. }
+Qed.
+Lemma ex_Rbar_sum_n_n (a : nat -> Rbar) (n : nat) :
+  ex_Rbar_sum_n_m a n n.
+Proof. eexists; eapply is_Rbar_sum_n_n. Qed.
+Lemma Rbar_sum_n_n a n :
+  Rbar_sum_n_m a n n = a n.
+Proof.
+  rewrite /is_Rbar_sum_n_m/Rbar_sum_n_m iter_nat_point //.
+  { intros []; last done. rewrite -{2}(Rbar_plus_0_r r) /Rbar_plus//=. eauto. }
+Qed.
+
+Lemma is_Rbar_sum_O (a : nat -> Rbar) : is_Rbar_sum_n a 0 (a O).
+Proof.
+  by apply is_Rbar_sum_n_n.
+Qed.
+Lemma is_Rbar_sum_n_Sm (a : nat -> Rbar) (n m : nat) v :
+  (n <= S m)%nat -> (is_Rbar_sum_n_m a n (S m) v <->
+                     ex_Rbar_sum_n_m a n m /\ is_Rbar_plus (Rbar_sum_n_m a n m) (a (S m)) v).
+Proof.
+  intros Hnmk.
+  rewrite (is_Rbar_sum_n_m_Chasles _ _ m); auto.
+  split.
+  - intros (Hex1&Hex2&His); split; auto.
+    rewrite Rbar_sum_n_n in His; eauto.
+  - intros (Hex1&His); split; [| split]; auto.
+    { apply ex_Rbar_sum_n_n. }
+    { rewrite Rbar_sum_n_n; eauto. }
+Qed.
+Lemma ex_Rbar_sum_n_Sm (a : nat -> Rbar) (n m : nat) :
+  (n <= S m)%nat -> (ex_Rbar_sum_n_m a n (S m) <->
+                     ex_Rbar_sum_n_m a n m /\ ex_Rbar_plus (Rbar_sum_n_m a n m) (a (S m))).
+Proof.
+  intros; split.
+  - intros (v&(?&?)%is_Rbar_sum_n_Sm); eauto.
+    split; eauto. eapply is_Rbar_plus_ex_Rbar_plus; eauto.
+  - intros ((v&Hex1)&Hex2). apply ex_Rbar_plus_is_Rbar_plus in Hex2.
+    eexists. eapply is_Rbar_sum_n_Sm; eauto. split; eauto.
+    eexists; eauto.
+Qed.
+
+(*
+Lemma Rbar_sum_n_Sm (a : nat -> Rbar) (n m : nat) :
+  (n <= S m)%nat -> Rbar_sum_n_m a n (S m) = Rbar_plus (Rbar_sum_n_m a n m) (a (S m)).
+Proof.
+  intros Hnmk.
+Qed.
+*)
+
+Lemma is_Rbar_sum_Sn_m (a : nat -> Rbar) (n m : nat) v :
+  (n <= m)%nat -> (is_Rbar_sum_n_m a n m v <->
+                   ex_Rbar_sum_n_m a (S n) m /\
+                   is_Rbar_plus (a n) (Rbar_sum_n_m a (S n) m) v).
+Proof.
+  intros Hnmk.
+  rewrite (is_Rbar_sum_n_m_Chasles _ _ n); auto.
+  split.
+  - intros (Hex1&Hex2&His); split; auto.
+    rewrite Rbar_sum_n_n in His; eauto.
+  - intros (Hex1&His); split; [| split]; auto.
+    { apply ex_Rbar_sum_n_n. }
+    { rewrite Rbar_sum_n_n; eauto. }
+Qed.
+Lemma Rbar_sum_n_m_S (a : nat -> Rbar) (n m : nat) :
+  Rbar_sum_n_m (fun n => a (S n)) n m = Rbar_sum_n_m a (S n) (S m).
+Proof. rewrite /Rbar_sum_n_m. apply iter_nat_S. Qed.
+
