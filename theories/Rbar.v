@@ -19,7 +19,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 COPYING file for more details.
 *)
 
-From Coq Require Import Reals ssreflect.
+From Coq Require Import Reals ssreflect Psatz.
 
 Require Import Rcomplements.
 
@@ -1109,13 +1109,19 @@ Proof.
     eexists; eauto.
 Qed.
 
-(*
 Lemma Rbar_sum_n_Sm (a : nat -> Rbar) (n m : nat) :
-  (n <= S m)%nat -> Rbar_sum_n_m a n (S m) = Rbar_plus (Rbar_sum_n_m a n m) (a (S m)).
+  (n <= S m)%nat ->
+  ex_Rbar_sum_n_m a n (S m) ->
+  Rbar_sum_n_m a n (S m) = Rbar_plus (Rbar_sum_n_m a n m) (a (S m)).
 Proof.
-  intros Hnmk.
+  intros Hle Hex.
+  eapply is_Rbar_sum_n_m_unique.
+  eapply is_Rbar_sum_n_Sm; eauto.
+  split.
+  * eapply ex_Rbar_sum_n_Sm; eauto.
+  * eapply Rbar_plus_correct.
+    eapply ex_Rbar_sum_n_Sm; eauto.
 Qed.
-*)
 
 Lemma is_Rbar_sum_Sn_m (a : nat -> Rbar) (n m : nat) v :
   (n <= m)%nat -> (is_Rbar_sum_n_m a n m v <->
@@ -1131,7 +1137,228 @@ Proof.
     { apply ex_Rbar_sum_n_n. }
     { rewrite Rbar_sum_n_n; eauto. }
 Qed.
+
+Lemma Rbar_sum_n_m'_S (a : nat -> Rbar) (n m : nat) :
+  Rbar_sum_n_m' (fun n => a (S n)) n m = Rbar_sum_n_m' a (S n) (S m).
+Proof. rewrite /Rbar_sum_n_m'. rewrite -iter_nat_S. eauto. Qed.
+
+Lemma is_Rbar_sum_n_m_S (a : nat -> Rbar) (n m : nat) v :
+  is_Rbar_sum_n_m (fun n => a (S n)) n m v <-> is_Rbar_sum_n_m a (S n) (S m) v.
+Proof. rewrite /is_Rbar_sum_n_m Rbar_sum_n_m'_S //=. Qed.
+
 Lemma Rbar_sum_n_m_S (a : nat -> Rbar) (n m : nat) :
   Rbar_sum_n_m (fun n => a (S n)) n m = Rbar_sum_n_m a (S n) (S m).
 Proof. rewrite /Rbar_sum_n_m. apply iter_nat_S. Qed.
+
+Lemma is_Rbar_sum_Sn (a : nat -> Rbar) (n: nat) v :
+  is_Rbar_sum_n a (S n) v <->
+  ex_Rbar_sum_n a n /\ is_Rbar_plus (Rbar_sum_n a n) (a (S n)) v.
+Proof. apply is_Rbar_sum_n_Sm. by apply le_O_n. Qed.
+
+Lemma ex_Rbar_sum_Sn (a : nat -> Rbar) (n: nat) :
+  ex_Rbar_sum_n a (S n) <->
+  ex_Rbar_sum_n a n /\ ex_Rbar_plus (Rbar_sum_n a n) (a (S n)).
+Proof. apply ex_Rbar_sum_n_Sm. by apply le_O_n. Qed.
+
+Lemma Rbar_sum_Sn (a : nat -> Rbar) (n : nat) :
+  ex_Rbar_sum_n_m a 0 (S n) ->
+  Rbar_sum_n a (S n) = Rbar_plus (Rbar_sum_n a n) (a (S n)).
+Proof. apply Rbar_sum_n_Sm. by apply le_O_n. Qed.
+
+Lemma Rbar_sum_n_m'_zero a n m:
+  (m < n)%nat -> Rbar_sum_n_m' a n m = Some (Finite R0).
+Proof.
+  intros Hnm.
+  rewrite /Rbar_sum_n_m'.
+  elim: n m a Hnm => [ | n IH] m a Hnm.
+  by apply lt_n_O in Hnm.
+  case: m Hnm => [|m] Hnm //.
+  rewrite -iter_nat_S.
+  apply IH.
+  by apply lt_S_n.
+Qed.
+
+Lemma is_Rbar_sum_n_m_zero (a : nat -> Rbar) (n m : nat) :
+  (m < n)%nat -> is_Rbar_sum_n_m a n m R0.
+Proof. eapply Rbar_sum_n_m'_zero. Qed.
+
+Lemma is_Rbar_sum_n_m_zero_inv (a : nat -> Rbar) (n m : nat) v :
+  (m < n)%nat -> is_Rbar_sum_n_m a n m v -> v = R0.
+Proof.
+  intros.
+  assert (Heqv: Rbar_sum_n_m a n m = v) by (eapply is_Rbar_sum_n_m_unique; eauto).
+  rewrite -Heqv.
+  eapply is_Rbar_sum_n_m_unique. apply is_Rbar_sum_n_m_zero; eauto.
+Qed.
+
+Lemma Rbar_sum_n_m_zero (a : nat -> Rbar) (n m : nat) :
+  (m < n)%nat -> Rbar_sum_n_m a n m = R0.
+Proof. intros Hnm. by apply Rbar_sum_n_m'_Some, Rbar_sum_n_m'_zero. Qed.
+
+Lemma Rbar_sum_n_m'_const_zero (n m : nat) :
+  Rbar_sum_n_m' (fun _ => R0) n m = Some (Finite R0).
+Proof.
+  rewrite /Rbar_sum_n_m' /iter_nat.
+  elim: (seq.iota n (S m - n)) => //= h t ->.
+  do 2 f_equal. nra.
+Qed.
+
+Lemma is_Rbar_sum_n_m_const_zero (n m : nat) :
+  is_Rbar_sum_n_m (fun _ => R0) n m R0.
+Proof. eapply Rbar_sum_n_m'_const_zero. Qed.
+
+Lemma Rbar_sum_n_m_const_zero (n m : nat) :
+  Rbar_sum_n_m (fun _ => R0) n m = R0.
+Proof. by apply Rbar_sum_n_m'_Some, Rbar_sum_n_m'_const_zero. Qed.
+
+Lemma Rbar_sum_n_m'_ext_loc (a b : nat -> Rbar) (n m : nat) :
+  (forall k, (n <= k <= m)%nat -> a k = b k) ->
+  Rbar_sum_n_m' a n m = Rbar_sum_n_m' b n m.
+Proof.
+  intros Heq. rewrite /Rbar_sum_n_m'. apply iter_nat_ext_loc.
+  intros; eauto. rewrite Heq //=.
+Qed.
+
+Lemma is_Rbar_sum_n_m_ext_loc (a b : nat -> Rbar) (n m : nat) v :
+  (forall k, (n <= k <= m)%nat -> a k = b k) ->
+  is_Rbar_sum_n_m a n m v ->
+  is_Rbar_sum_n_m b n m v.
+Proof.
+  intros. rewrite /is_Rbar_sum_n_m. erewrite Rbar_sum_n_m'_ext_loc; try eassumption.
+  intros; symmetry; eauto.
+Qed.
+
+Lemma Rbar_sum_n_m_ext_loc (a b : nat -> Rbar) (n m : nat) :
+  (forall k, (n <= k <= m)%nat -> a k = b k) ->
+  Rbar_sum_n_m a n m = Rbar_sum_n_m b n m.
+Proof.
+  intros.
+  by apply iter_nat_ext_loc.
+Qed.
+
+Lemma Rbar_sum_n_m_ext (a b : nat -> Rbar) n m :
+  (forall n, a n = b n) ->
+  Rbar_sum_n_m a n m = Rbar_sum_n_m b n m.
+Proof.
+  intros H.
+  by apply Rbar_sum_n_m_ext_loc.
+Qed.
+
+Lemma is_Rbar_sum_n_ext_loc :
+  forall (a b : nat -> Rbar) N v,
+  (forall n, (n <= N)%nat -> a n = b n) ->
+  is_Rbar_sum_n a N v ->
+  is_Rbar_sum_n b N v.
+Proof.
+  intros a b N v H.
+  apply is_Rbar_sum_n_m_ext_loc => k [ _ Hk].
+  by apply H.
+Qed.
+
+Lemma Rbar_sum_n_ext_loc :
+  forall (a b : nat -> Rbar) N,
+  (forall n, (n <= N)%nat -> a n = b n) ->
+  Rbar_sum_n a N = Rbar_sum_n b N.
+Proof.
+  intros a b N H.
+  apply Rbar_sum_n_m_ext_loc => k [ _ Hk].
+  by apply H.
+Qed.
+Lemma Rbar_sum_n_ext :
+  forall (a b : nat -> Rbar) N,
+  (forall n, a n = b n) ->
+  Rbar_sum_n a N = Rbar_sum_n b N.
+Proof.
+  intros a b N H.
+  by apply Rbar_sum_n_ext_loc.
+Qed.
+
+Lemma Rbar_plus4_sum_inv a b c d v1 v2:
+  is_Rbar_plus a b v1 ->
+  is_Rbar_plus c d v2 ->
+  ex_Rbar_plus v1 v2 ->
+  ex_Rbar_plus a c /\ is_Rbar_plus (Rbar_plus a c) (Rbar_plus b d) (Rbar_plus v1 v2).
+Proof.
+  rewrite /is_Rbar_plus/ex_Rbar_plus/Rbar_plus/Rbar_plus'.
+  destruct a,b,c,d => //=;
+  inversion 1; subst;
+  inversion 1; subst; split; eauto; try do 2 f_equal; nra.
+Qed.
+Lemma is_Rbar_plus_ext a b c a' b':
+  a = a' ->
+  b = b' ->
+  is_Rbar_plus a b c <-> is_Rbar_plus a' b' c.
+Proof. intros; subst; eauto. intuition. Qed.
+
+Lemma is_Rbar_sum_n_m_plus :
+  forall (u v : nat -> Rbar) (n m : nat) x1 x2,
+    is_Rbar_sum_n_m u n m x1 ->
+    is_Rbar_sum_n_m v n m x2 ->
+    ex_Rbar_plus x1 x2 ->
+    is_Rbar_sum_n_m (fun k => Rbar_plus (u k) (v k)) n m (Rbar_plus x1 x2).
+Proof.
+  intros u v n m x1 x2.
+  case: (le_dec n m) => Hnm.
+  elim: m n u v x1 x2 Hnm => [ | m IH] ;
+  case => [ | n] u v x1 x2 Hnm.
+  { rewrite /is_Rbar_sum_n_m. rewrite ?is_Rbar_sum_n_n.
+    inversion 1; subst.
+    inversion 1; subst.
+    intros. eauto.
+  }
+  {
+    by apply le_Sn_O in Hnm.
+  }
+  {
+    rewrite is_Rbar_sum_n_Sm; auto.
+    rewrite is_Rbar_sum_n_Sm; auto.
+    rewrite is_Rbar_sum_n_Sm; auto.
+    intros (Hex1&Hplus1) (Hex2&Hplus2); split; last first.
+    {
+      apply Rbar_sum_n_m_correct in Hex1.
+      apply Rbar_sum_n_m_correct in Hex2.
+      edestruct Rbar_plus4_sum_inv as (Hex&Hplus); [ apply Hplus1 | apply Hplus2 | apply H | ].
+      eapply is_Rbar_plus_ext; try eassumption; eauto.
+      eapply is_Rbar_sum_n_m_unique.
+      eapply IH; eauto. apply le_O_n.
+    }
+    eexists.
+    apply Rbar_sum_n_m_correct in Hex1.
+    apply Rbar_sum_n_m_correct in Hex2.
+    eapply IH; eauto.
+    { apply le_O_n. }
+      edestruct Rbar_plus4_sum_inv as (Hex&Hplus); [ apply Hplus1 | apply Hplus2 | apply H | ]. eauto.
+  }
+  { rewrite -?is_Rbar_sum_n_m_S. eapply IH. by apply le_S_n. }
+  {
+    intros ?%is_Rbar_sum_n_m_zero_inv; last lia.
+    intros ?%is_Rbar_sum_n_m_zero_inv; last lia.
+    subst. intros _.
+    rewrite /= Rplus_0_r. apply is_Rbar_sum_n_m_zero.
+    lia.
+  }
+Qed.
+
+Lemma Rbar_sum_n_m_plus :
+  forall (u v : nat -> Rbar) (n m : nat),
+  ex_Rbar_sum_n_m u n m ->
+  ex_Rbar_sum_n_m v n m ->
+  ex_Rbar_plus (Rbar_sum_n_m u n m) (Rbar_sum_n_m v n m)->
+  Rbar_sum_n_m (fun k => Rbar_plus (u k) (v k)) n m = Rbar_plus (Rbar_sum_n_m u n m) (Rbar_sum_n_m v n m).
+Proof.
+  intros.
+  apply is_Rbar_sum_n_m_unique.
+  eapply is_Rbar_sum_n_m_plus; eauto using Rbar_sum_n_m_correct.
+Qed.
+
+Lemma Rbar_sum_n_plus :
+  forall (u v : nat -> Rbar) (n : nat),
+  ex_Rbar_sum_n u n ->
+  ex_Rbar_sum_n v n ->
+  ex_Rbar_plus (Rbar_sum_n u n) (Rbar_sum_n v n)->
+  Rbar_sum_n (fun k => Rbar_plus (u k) (v k)) n = Rbar_plus (Rbar_sum_n u n) (Rbar_sum_n v n).
+Proof.
+  intros u v n.
+  apply Rbar_sum_n_m_plus.
+Qed.
 
