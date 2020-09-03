@@ -1034,6 +1034,24 @@ Lemma Rbar_sum_n_correct a n :
   ex_Rbar_sum_n a n -> is_Rbar_sum_n a n (Rbar_sum_n a n).
 Proof. destruct 1 as (?&His). by rewrite (is_Rbar_sum_n_unique _ _ _ His). Qed.
 
+Lemma Rbar_sum_n_m'_Chasles (a : nat -> Rbar) (n m k : nat) :
+  (n <= S m)%nat -> (m <= k)%nat
+  -> Rbar_sum_n_m' a n k =
+     match (Rbar_sum_n_m' a n m), (Rbar_sum_n_m' a (S m) k) with
+     | Some x, Some y => Rbar_plus' x y
+     | _, _ => None
+     end.
+Proof.
+  intros Hnm Hmk.
+  rewrite /Rbar_sum_n_m'.
+  rewrite (iter_nat_Chasles _ _ _ _ _ n m k); swap 1 5; eauto.
+  { intros []; last done. rewrite -{2}(Rbar_plus_0_l r) /Rbar_plus//=. destruct r; eauto. }
+  { intros [r0|] [r1|] [r2|]; try done.
+    * rewrite /Rbar_plus'. destruct r0, r1, r2 => //=. do 2 f_equal. ring.
+    * destruct (Rbar_plus' _ _); eauto.
+  }
+Qed.
+
 Lemma is_Rbar_sum_n_m_Chasles (a : nat -> Rbar) (n m k : nat) v :
   (n <= S m)%nat -> (m <= k)%nat
   -> (is_Rbar_sum_n_m a n k v <->
@@ -1063,26 +1081,39 @@ Proof.
     * by eapply Rbar_sum_n_m'_Some.
 Qed.
 
-Lemma is_Rbar_sum_n_n (a : nat -> Rbar) (n : nat) :
-  is_Rbar_sum_n_m a n n (a n).
+Lemma Rbar_sum_n_n' (a : nat -> Rbar) (n: nat) :
+  Rbar_sum_n_m' a n n = Some (a n).
 Proof.
-  rewrite /is_Rbar_sum_n_m/Rbar_sum_n_m'.
-  rewrite iter_nat_point //=.
+  rewrite /Rbar_sum_n_m'. rewrite iter_nat_point //=.
   { intros []; last done. rewrite -{2}(Rbar_plus_0_r r) /Rbar_plus//=. destruct r; eauto. }
 Qed.
+
+Lemma is_Rbar_sum_n_n (a : nat -> Rbar) (n : nat) :
+  is_Rbar_sum_n_m a n n (a n).
+Proof. by apply Rbar_sum_n_n'. Qed.
 Lemma ex_Rbar_sum_n_n (a : nat -> Rbar) (n : nat) :
   ex_Rbar_sum_n_m a n n.
 Proof. eexists; eapply is_Rbar_sum_n_n. Qed.
 Lemma Rbar_sum_n_n a n :
   Rbar_sum_n_m a n n = a n.
-Proof.
-  rewrite /is_Rbar_sum_n_m/Rbar_sum_n_m iter_nat_point //.
-  { intros []; last done. rewrite -{2}(Rbar_plus_0_r r) /Rbar_plus//=. eauto. }
-Qed.
+Proof. eapply Rbar_sum_n_m'_Some, Rbar_sum_n_n'. Qed.
 
 Lemma is_Rbar_sum_O (a : nat -> Rbar) : is_Rbar_sum_n a 0 (a O).
 Proof.
   by apply is_Rbar_sum_n_n.
+Qed.
+Lemma Rbar_sum_n_Sm' (a : nat -> Rbar) (n m : nat) :
+  (n <= S m)%nat -> Rbar_sum_n_m' a n (S m) =
+                    match (Rbar_sum_n_m' a n m) with
+                    | Some x => Rbar_plus' x (a (S m))
+                    | _ => None
+                    end.
+Proof.
+  intros Hnmk.
+  rewrite (Rbar_sum_n_m'_Chasles _ _ m).
+  by rewrite Rbar_sum_n_n'.
+  by [].
+  by apply le_n_Sn.
 Qed.
 Lemma is_Rbar_sum_n_Sm (a : nat -> Rbar) (n m : nat) v :
   (n <= S m)%nat -> (is_Rbar_sum_n_m a n (S m) v <->
@@ -1121,6 +1152,20 @@ Proof.
   * eapply ex_Rbar_sum_n_Sm; eauto.
   * eapply Rbar_plus_correct.
     eapply ex_Rbar_sum_n_Sm; eauto.
+Qed.
+
+Lemma Rbar_sum_Sn_m' (a : nat -> Rbar) (n m : nat) :
+  (n <= m)%nat -> Rbar_sum_n_m' a n m =
+                  match (Rbar_sum_n_m' a (S n) m) with
+                  | Some x => Rbar_plus' (a n) x
+                  | None => None
+                  end.
+Proof.
+  intros Hnmk.
+  rewrite (Rbar_sum_n_m'_Chasles _ _ n).
+  by rewrite Rbar_sum_n_n'.
+  by apply le_n_Sn.
+  by [].
 Qed.
 
 Lemma is_Rbar_sum_Sn_m (a : nat -> Rbar) (n m : nat) v :
@@ -1362,3 +1407,27 @@ Proof.
   apply Rbar_sum_n_m_plus.
 Qed.
 
+(* TODO: this is annoying to prove right now. Maybe the right way is to
+   observe that the option Rbar with Rbar_plus' can be made into an Absorbing abelian monoid
+   (where 0 is the absorbing element) and then use sum_n_switch from Hierarchy.v *)
+(*
+Lemma Rbar_sum_n'_switch :
+  forall (u : nat -> nat -> Rbar) (m n : nat),
+  Rbar_sum_n' (fun i => Rbar_sum_n' (u i) n) m = Rbar_sum_n' (fun j => Rbar_sum_n' (fun i => u i j) m) n.
+Proof.
+  intros u.
+  rewrite /sum_n.
+  induction m ; simpl ; intros n.
+  rewrite sum_n_n.
+  apply iter_nat_ext_loc => k Hk.
+  rewrite sum_n_n.
+  by [].
+  rewrite !sum_n_Sm.
+  rewrite IHm ; clear IHm.
+  rewrite -sum_n_m_plus.
+  apply sum_n_m_ext_loc => k Hk.
+  rewrite sum_n_Sm //.
+  by apply le_O_n.
+  by apply le_O_n.
+Qed.
+*)
