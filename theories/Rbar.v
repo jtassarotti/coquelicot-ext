@@ -475,6 +475,11 @@ Proof.
   destruct x as [x | | ] ; simpl ; intuition.
 Qed.
 
+Lemma Rbar_opp_finite (x : Rbar): is_finite x -> is_finite (Rbar_opp x).
+Proof.
+  destruct x as [x | | ]; rewrite /is_finite; simpl; intuition; congruence.
+Qed.
+
 (** *** Rbar_plus *)
 
 Lemma Rbar_plus'_comm :
@@ -539,6 +544,39 @@ Lemma Rbar_plus_opp (x y : Rbar) :
 Proof.
   case: x => [x | | ] ;
   case: y => [y | | ] //= ; apply f_equal ; ring.
+Qed.
+
+Lemma Rbar_plus_opp_finite (x : Rbar) :
+  is_finite x ->
+  Rbar_plus x (Rbar_opp x) = Finite 0.
+Proof.
+  intros Hfin.
+  destruct x as [x | |]; eauto. simpl. f_equal. field.
+Qed.
+
+Lemma Rbar_plus_assoc_finite (x y z : Rbar) :
+  is_finite y ->
+  is_finite z ->
+  Rbar_plus (Rbar_plus x y) z =
+  Rbar_plus x (Rbar_plus y z).
+Proof.
+  intros Hfin1 Hfin2.
+  rewrite /Rbar_plus/Rbar_plus'. destruct x, y, z => //=.
+  f_equal.
+  field.
+Qed.
+
+Lemma Rbar_plus_assoc_nonneg (x y z : Rbar) :
+  Rbar_le 0 x ->
+  Rbar_le 0 y ->
+  Rbar_le 0 z ->
+  Rbar_plus (Rbar_plus x y) z =
+  Rbar_plus x (Rbar_plus y z).
+Proof.
+  intros Hle1 Hle2 Hle3.
+  rewrite /Rbar_plus/Rbar_plus'. destruct x, y, z => //=.
+  f_equal.
+  field.
 Qed.
 
 (** *** Rbar_minus *)
