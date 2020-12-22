@@ -87,6 +87,17 @@ Proof.
   - intros (?&?&His). eauto.
 Qed.
 
+Lemma enn_is_series_reals2 (a : nat -> Rbar) (l : R) :
+  (∀ n, is_finite (a n)) ->
+  enn_ex_series a ->
+  is_series (fun n => real (a n)) l -> enn_is_series a l.
+Proof.
+  intros Hfin Hex His.
+  rewrite /enn_is_series.
+  split; [| split]; auto.
+  destruct Hex as (?&?&?); eauto.
+Qed.
+
 Lemma enn_is_series_ext (a b : nat -> Rbar) (l : Rbar) :
   (forall n, a n = b n) -> (enn_is_series a l)
     -> enn_is_series b l.
@@ -147,6 +158,25 @@ Proof.
     specialize (Hnonneg n). rewrite Heq in Hnonneg. exfalso; simpl in Hnonneg. eauto.
   }
   exists p_infty. split; eauto.
+Qed.
+
+Lemma enn_ex_series_inv (a : nat -> Rbar) :
+  enn_ex_series a ->
+  (ex_series (fun n => real (a n)) ∧ (forall n, is_finite (a n)) ∧ enn_Series a = Series a) ∨
+  enn_Series a = p_infty.
+Proof.
+  intros Hex.
+  destruct Hex as (l&His).
+  destruct l.
+  - left.
+    split; [| split].
+    * destruct His as (Hnonneg&?&?); eexists; eauto.
+    * destruct His as (Hnonneg&?&?); eauto.
+    * apply enn_is_series_unique.
+      destruct His as (Hnonneg&?&?); eexists; eauto.
+      split; eauto. apply Series_correct; eexists; eauto.
+  - right. by apply enn_is_series_unique.
+  - exfalso; eapply His.
 Qed.
 
 (** Index offset *)
@@ -356,136 +386,59 @@ Qed.
 
 (** * Convergence theorems *)
 
-(*
-Lemma Cauchy_series_Reals (a : nat -> R) :
-  Cauchy_series a <-> Cauchy_crit_series a.
-Proof.
-  split => Hcv.
-  apply cv_cauchy_1, ex_series_Reals_0.
-  by apply: ex_series_Cauchy.
-  apply: Cauchy_ex_series.
-  apply ex_series_Reals_1.
-  apply cv_cauchy_2.
-  by apply Hcv.
-Qed.
-
-Lemma ex_series_lim_0 (a : nat -> R) :
-  ex_series a -> is_lim_seq a 0.
-Proof.
-  intros Hs.
-  apply is_lim_seq_spec.
-  intros eps.
-  apply (Cauchy_ex_series (V := R_CompleteNormedModule)) in Hs.
-  case: (Hs eps) => {Hs} N Hs.
-  exists (S N) ; case => [ | n] Hn.
-  by apply le_Sn_0 in Hn.
-  apply le_S_n in Hn.
-  replace (a (S n) - 0)
-    with (sum_n_m a (S n) (S n)).
-  apply Hs ; by intuition.
-  by rewrite sum_n_n Rminus_0_r.
-Qed.
-
-Lemma ex_series_Rabs (a : nat -> R) :
-  ex_series (fun n => Rabs (a n)) -> ex_series a.
-Proof.
-  move => H.
-  apply: ex_series_Cauchy.
-  apply Cauchy_series_Reals.
-  apply cauchy_abs.
-  apply Cauchy_series_Reals.
-  by apply: Cauchy_ex_series.
-Qed.
-
-Lemma Series_Rabs (a : nat -> R) :
-  ex_series (fun n => Rabs (a n)) ->
-    Rabs (Series a) <= Series (fun n => Rabs (a n)).
-Proof.
-  move => Hra.
-  have Ha := (ex_series_Rabs a Hra).
-  case: Hra => lra Hra.
-  case: Ha => la Ha.
-  rewrite /is_series in Hra Ha.
-  rewrite /Series /=.
-  replace (Lim_seq (sum_n a)) with (Finite la).
-  replace (Lim_seq (sum_n (fun k : nat => Rabs (a k)))) with (Finite lra).
-  simpl.
-  apply (is_lim_seq_abs _ la) in Ha.
-  change (Rbar_le (Rabs la) lra).
-  eapply is_lim_seq_le with (2:=Ha).
-  2: apply Hra.
-  elim => [ | n IH] /=.
-  rewrite !sum_O.
-  by apply Rle_refl.
-  rewrite !sum_Sn.
-  apply Rle_trans with (1 := Rabs_triang _ _).
-  apply Rplus_le_compat_r.
-  by apply IH.
-  by apply sym_eq, is_lim_seq_unique.
-  by apply sym_eq, is_lim_seq_unique.
-Qed.
-
 (** Comparison *)
 
-Lemma ex_series_le {K : AbsRing} {V : CompleteNormedModule K}
-  (a : nat -> V) (b : nat -> R) :
-   (forall n : nat, norm (a n) <= b n) ->
-   ex_series b -> ex_series a.
+Lemma enn_Series_finite (a : nat -> Rbar) :
+  (forall n, is_finite (a n)) ->
+  ex_series (fun n => real (a n)) ->
+  enn_Series a = Series (fun n => real (a n)).
 Proof.
-  move => H Hb.
-  apply (Cauchy_ex_series (V := R_CompleteNormedModule)) in Hb.
-  apply ex_series_Cauchy.
-  move => e.
-  case (Hb e) => {Hb} N Hb.
-  exists N => n m Hn Hm.
-  eapply Rle_lt_trans, (Hb _ _ Hn Hm) => //.
-  eapply Rle_trans.
-  apply norm_sum_n_m.
-  apply Rle_trans with (sum_n_m b n m).
-  by apply sum_n_m_le.
-  right.
-  assert (forall n, 0 <= b n).
-    intros k.
-    eapply Rle_trans, H.
-    by apply norm_ge_0.
-  clear -H0.
-  apply sym_eq, Rabs_pos_eq.
-  elim: n m b H0 => /= [ | n IH] m b Hb.
-  elim: m => /= [ | m IH].
-  rewrite sum_n_n.
-  by apply Hb.
-  rewrite sum_n_Sm.
-  by apply Rplus_le_le_0_compat.
-  by apply le_O_n.
-  case: m => /= [ | m].
-  by apply Rle_refl.
-  rewrite -sum_n_m_S.
-  apply IH => k.
-  by apply Hb.
+  intros Hfin Hex.
+  destruct (excluded_middle_informative (enn_ex_series a)) eqn:Heq; last first.
+  { rewrite /enn_Series. rewrite Heq. auto. }
+  apply enn_is_series_unique.
+  apply enn_is_series_reals2; auto.
+  apply Series_correct; auto.
 Qed.
 
-Lemma Series_le (a b : nat -> R) :
-  (forall n : nat, 0 <= a n <= b n) ->
-   ex_series b -> Series a <= Series b.
+Lemma enn_Series_le (a b : nat -> Rbar) :
+  (forall n : nat, Rbar_le 0 (a n) /\ Rbar_le (a n) (b n)) ->
+   Rbar_le (enn_Series a) (enn_Series b).
 Proof.
-  move => Hn Hb.
-  have Ha := (ex_series_le a b).
-  apply Lim_seq_correct' in Ha.
-  apply Lim_seq_correct' in Hb.
-  move: Ha Hb ; apply is_lim_seq_le.
-  elim => [ | n IH] /=.
-  rewrite !sum_O.
-  by apply Hn.
-  rewrite !sum_Sn.
-  apply Rplus_le_compat.
-  by apply IH.
-  by apply Hn.
-  intros n.
-  rewrite /norm /= /abs /= Rabs_pos_eq ; by apply Hn.
-  by apply Hb.
+  intros Hle.
+  assert (enn_ex_series a).
+  { apply enn_ex_series_nonneg. eapply Hle. }
+  assert (enn_ex_series b).
+  { apply enn_ex_series_nonneg. intros. apply (Rbar_le_trans _ (a n)); eapply Hle. }
+  destruct (enn_ex_series_inv b) as [Hex|Hpinfty]; auto.
+  - destruct Hex as (Hex&Hfin&->).
+    assert (Hfina: ∀ n, is_finite (a n)).
+    { intros n.
+      rewrite /is_finite.
+      specialize (Hle n).
+      specialize (Hfin n).
+      destruct (a n) => //=; rewrite -Hfin in Hle; simpl in Hle; intuition.
+    }
+    rewrite enn_Series_finite; auto; last first.
+    { apply: ex_series_le; eauto.
+      simpl. rewrite /norm //= /abs //=. intros n.
+      destruct (Hle n) as (Hnonneg&Hleb).
+      rewrite -Hfin in Hleb.
+      rewrite -Hfina in Hleb Hnonneg.
+      simpl in Hleb, Hnonneg.
+      rewrite Rabs_right; auto. nra.
+    }
+    simpl. apply Series_le; eauto.
+    { intros n.
+      specialize (Hle n).
+      specialize (Hfin n).
+      rewrite -Hfin in Hle.
+      rewrite -Hfina in Hle. simpl in Hle. auto.
+    }
+  - rewrite Hpinfty. destruct (enn_Series a) => //=.
 Qed.
 
-
+(*
 (** * Operations *)
 
 (** Additive operators *)
@@ -906,3 +859,4 @@ Proof.
   rewrite /ap /am /bp /bm ; field.
 Qed.
 *)
+
