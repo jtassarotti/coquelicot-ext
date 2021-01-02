@@ -438,15 +438,11 @@ Proof.
   - rewrite Hpinfty. destruct (enn_Series a) => //=.
 Qed.
 
-(*
 (** * Operations *)
 
 (** Additive operators *)
 
-Section Properties2.
-
-Context {K : AbsRing} {V : NormedModule K}.
-
+(*
 Lemma is_series_opp (a : nat -> V) (la : V) :
   is_series a la
     -> is_series (fun n => opp (a n)) (opp la).
@@ -481,29 +477,121 @@ Proof.
   rewrite !sum_Sn IH /plus /=.
   ring.
 Qed.
+*)
 
-Lemma is_series_plus (a b : nat -> V) (la lb : V) :
-  is_series a la -> is_series b lb
-    -> is_series (fun n => plus (a n)  (b n)) (plus la  lb).
+Lemma enn_lim_p_infty_strengthen (a : nat -> Rbar) :
+  (∀ n : nat, Rbar_le 0 (a n)) ->
+  (∃ n : nat, a n = p_infty) ∨ ¬ ex_series (λ n : nat, real (a n)) ->
+  (∃ n : nat, a n = p_infty) ∨ (¬ ex_series (λ n : nat, real (a n)) ∧ (∀ n, is_finite (a n))).
+Proof.
+  intros Hnonneg Hcase.
+  destruct (ClassicalEpsilon.excluded_middle_informative (∃ n, a n = p_infty)) as [Htrue|Hfalse].
+  { left; eauto. }
+  destruct Hcase as [Hl|Hr]; first (exfalso; eauto).
+  right. split; eauto. intros n. rewrite /is_finite; specialize (Hnonneg n); destruct (a n) eqn:Heq; eauto.
+  * exfalso. eapply Hfalse; eauto.
+  * simpl in Hnonneg; exfalso; eauto.
+Qed.
+
+Lemma enn_is_series_plus_pinfty (a b : nat -> Rbar) (la : Rbar) :
+  enn_is_series a la -> enn_is_series b p_infty
+    -> enn_is_series (fun n => Rbar_plus (a n) (b n)) (Rbar_plus la p_infty).
+Proof.
+  intros Ha Hb.
+  destruct la as [ra | |]; last by (exfalso; eapply Ha).
+  * simpl in *.
+    destruct Ha as (Hnonnega&Hfina&Ha').
+    destruct Hb as (Hnonnegb&Hlim).
+    split.
+    { simpl. intros n.
+      specialize (Hfina n).
+      specialize (Hnonnega n). specialize (Hnonnegb n).
+      destruct (a n), (b n); try simpl in *; try nra.
+    }
+    destruct Hlim as [Hpinfty|Hnexists].
+    ** left. destruct Hpinfty as (n&Heq). exists n.
+       specialize (Hfina n). rewrite Heq.
+       rewrite /is_finite in Hfina.
+       destruct (a n); try simpl in *; try nra; try congruence.
+    ** right. intros Hex. apply Hnexists.
+       apply: ex_series_le; last eapply Hex.
+       intros n. rewrite /norm //= /abs //=.
+       rewrite Rabs_right; last first.
+       { specialize (Hnonnegb n).  destruct (b n); simpl in *; try nra. }
+       specialize (Hfina n). specialize (Hnonnega n).
+       destruct (a n); try simpl in *; try nra; try congruence.
+       destruct (b n); try simpl in *; try nra.
+  * destruct Ha as (Hnonnega&Hlima).
+    destruct Hb as (Hnonnegb&Hlimb).
+    split.
+    { simpl. intros n.
+      specialize (Hnonnega n). specialize (Hnonnegb n).
+      destruct (a n), (b n); try simpl in *; try nra.
+    }
+    apply enn_lim_p_infty_strengthen in Hlima; eauto.
+    apply enn_lim_p_infty_strengthen in Hlimb; eauto.
+    destruct Hlimb as [Hpinfty|(Hnexistsb&Hfinb)].
+    { left. destruct Hpinfty as (n&Heq). exists n.
+       specialize (Hnonnega n). rewrite Heq.
+       destruct (a n); try simpl in *; try nra; try congruence. }
+    destruct Hlima as [Hpinfty|(Hnexistsa&Hfina)].
+    { left. destruct Hpinfty as (n&Heq). exists n.
+       specialize (Hnonnegb n). rewrite Heq.
+       destruct (b n); try simpl in *; try nra; try congruence. }
+    right. intros Hex.
+    apply Hnexistsb.
+    apply: ex_series_le; last eapply Hex.
+    intros n. rewrite /norm //= /abs //=.
+    rewrite Rabs_right; last first.
+    { specialize (Hnonnegb n). destruct (b n); simpl in *; try nra. }
+    specialize (Hnonnega n). specialize (Hnonnegb n).
+    specialize (Hfina n). specialize (Hfinb n).
+    destruct (a n); try simpl in *; try nra; try congruence;
+    destruct (b n); try simpl in *; try nra.
+Qed.
+
+Lemma enn_is_series_plus (a b : nat -> Rbar) (la lb : Rbar) :
+  enn_is_series a la -> enn_is_series b lb
+    -> enn_is_series (fun n => Rbar_plus (a n)  (b n)) (Rbar_plus la  lb).
 Proof.
   move => Ha Hb.
-  apply filterlim_ext with (fun n => plus (sum_n a n) (sum_n b n)).
-  elim => [ | n IH]; simpl.
-  by rewrite !sum_O.
-  rewrite !sum_Sn -IH; rewrite <- 2!plus_assoc; apply f_equal.
-  rewrite 2!plus_assoc; apply f_equal2; try easy.
-  apply plus_comm.
-  now apply filterlim_comp_2 with (3 := filterlim_plus _ _).
-Qed.
-Lemma ex_series_plus (a b : nat -> V) :
-  ex_series a -> ex_series b
-    -> ex_series (fun n => plus (a n) (b n)).
-Proof.
-  move => [la Ha] [lb Hb].
-  exists (plus la lb).
-  by apply is_series_plus.
+  destruct la as [ra | |]; last by (exfalso; eapply Ha).
+  - destruct lb as [rb | |]; last by (exfalso; eapply Hb).
+    * simpl in *. destruct Ha as (Hnonnega&Hfina&Ha'); destruct Hb as (Hnonnegb&Hfinb&Hb'); split.
+      { simpl. intros n.
+        specialize (Hfina n). specialize (Hfinb n).
+        specialize (Hnonnega n). specialize (Hnonnegb n).
+        destruct (a n), (b n); try simpl in *; try nra.
+      }
+      split.
+      { simpl. intros n.
+        specialize (Hfina n). specialize (Hfinb n).
+        specialize (Hnonnega n). specialize (Hnonnegb n).
+        destruct (a n), (b n); try simpl in *; rewrite /is_finite //=.
+      }
+      simpl.
+      eapply (is_series_ext (λ n : nat, (a n) + (b n))).
+      { intros n.
+        specialize (Hfina n). specialize (Hfinb n).
+        destruct (a n), (b n); try simpl in *; rewrite /is_finite //=.
+      }
+      apply: is_series_plus; eauto.
+    * eapply enn_is_series_plus_pinfty; eauto.
+  - rewrite Rbar_plus_comm. eapply enn_is_series_ext.
+    { intros n. rewrite Rbar_plus_comm; reflexivity. }
+    eapply enn_is_series_plus_pinfty; eauto.
 Qed.
 
+Lemma enn_ex_series_plus (a b : nat -> Rbar) :
+  enn_ex_series a -> enn_ex_series b
+    -> enn_ex_series (fun n => Rbar_plus (a n) (b n)).
+Proof.
+  move => [la Ha] [lb Hb].
+  exists (Rbar_plus la lb).
+  by apply enn_is_series_plus.
+Qed.
+
+(*
 Lemma is_series_minus (a b : nat -> V) (la lb : V) :
   is_series a la -> is_series b lb
     -> is_series (fun n => plus (a n) (opp (b n))) (plus la (opp lb)).
@@ -520,20 +608,20 @@ Proof.
   apply ex_series_plus => //.
   apply ex_series_opp => //.
 Qed.
+*)
 
-End Properties2.
 
-Lemma Series_plus (a b : nat -> R) :
-  ex_series a -> ex_series b
-    -> Series (fun n => a n + b n) = Series a + Series b.
+Lemma Series_plus (a b : nat -> Rbar) :
+  enn_ex_series a -> enn_ex_series b
+    -> enn_Series (fun n => Rbar_plus (a n) (b n)) = Rbar_plus (enn_Series a) (enn_Series b).
 Proof.
   intros Ha Hb.
-  replace (Series a + Series b) with (real (Series a + Series b)) by auto.
-  apply (f_equal real), is_lim_seq_unique.
-  apply: is_series_plus ;
-  by apply Series_correct.
+  apply enn_is_series_unique;
+    apply enn_is_series_plus;
+    by apply enn_Series_correct.
 Qed.
 
+(*
 Lemma Series_minus (a b : nat -> R) :
   ex_series a -> ex_series b
     -> Series (fun n => a n - b n) = Series a - Series b.
@@ -544,7 +632,9 @@ Proof.
   apply ex_series_opp in Hb.
   now simpl in Hb.
 Qed.
+*)
 
+(*
 (** Multiplication by a scalar *)
 
 Section Properties3.
