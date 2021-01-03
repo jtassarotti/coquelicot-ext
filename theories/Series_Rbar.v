@@ -22,7 +22,7 @@ COPYING file for more details.
 
 From Coq Require Import Reals Psatz ssreflect Utf8 ClassicalEpsilon.
 
-Require Import Rcomplements Lim_seq Rbar Hierarchy Series.
+Require Import Rcomplements Lim_seq Rbar Hierarchy Series Markov.
 
 Section Definitions.
 
@@ -634,29 +634,359 @@ Proof.
 Qed.
 *)
 
-(*
 (** Multiplication by a scalar *)
 
-Section Properties3.
-
-Context {K : AbsRing} {V : NormedModule K}.
-
-Lemma is_series_scal (c : K) (a : nat -> V) (l : V) :
-  is_series a l -> is_series (fun n => scal c (a n)) (scal c l).
+Lemma is_series_0 a: (∀ n, a n = 0) → is_series a 0.
 Proof.
-  move => Ha.
-  apply filterlim_ext with (fun n => scal c (sum_n a n)).
-  elim => [ | n IH]; simpl.
-  by rewrite !sum_O.
-  rewrite !sum_Sn -IH.
-  apply: scal_distr_l.
-  now apply filterlim_comp with (2 := filterlim_scal_r _ _).
-Qed.
-Lemma is_series_scal_l : forall (c : K) (a : nat -> V) (l : V),
-  is_series a l -> is_series (fun n => scal c (a n)) (scal c l).
-exact is_series_scal.
+  intros Ha. apply (is_series_ext (λ x, 0)); auto.
+  rewrite /is_series.
+  apply (filterlim_ext (λ x, 0)).
+  - intros m. rewrite sum_n_const Rmult_0_r //.
+  - apply filterlim_const.
 Qed.
 
+Lemma Series_0 a: (∀ n, a n = 0) → Series a = 0.
+Proof.
+  intros Heq. apply is_series_unique, is_series_0. done.
+Qed.
+
+Lemma enn_is_series_0 (a : nat -> Rbar) : (∀ n, a n = Finite 0) → enn_is_series a 0.
+Proof.
+  intros Heq. split; [| split]; auto.
+  { intros n. rewrite Heq. apply Rbar_le_refl. }
+  { intros n. rewrite Heq. rewrite //=. }
+  { apply is_series_0. intros n. rewrite Heq //=. }
+Qed.
+
+Lemma Series_strict_pos_inv a:
+  (∀ n, a n >= 0) →
+  0 < Series a →
+  ∃ n, a n > 0.
+Proof.
+  intros Hge Hlt.
+  destruct (LPO (λ n, a n > 0)) as [Hs|Heq0].
+  - intros n. destruct (Rgt_dec (a n) 0) => //=; auto.
+  - destruct Hs as (n&Hgt0); exists n; done.
+  - exfalso. assert (Series a = 0).
+    { apply Series_0. intros n. destruct (Hge n) => //=.
+      exfalso; eapply Heq0; eauto.
+    }
+    nra.
+Qed.
+
+Lemma is_series_strict_pos_inv a r :
+  (∀ n, a n >= 0) →
+  is_series a r →
+  0 < r →
+  ∃ n, a n > 0.
+Proof.
+  intros. eapply Series_strict_pos_inv; eauto.
+  replace (Series a) with r; auto.
+  symmetry. apply is_series_unique; auto.
+Qed.
+
+Lemma enn_is_series_strict_pos_inv a (r : R) :
+  enn_is_series a r →
+  0 < r →
+  ∃ n, Rbar_lt 0 (a n).
+Proof.
+  intros His Hlt. destruct His as (Hnonneg&Hfin&His).
+  eapply is_series_strict_pos_inv in His; eauto.
+  - destruct His as (n&Hgt). exists n. specialize (Hfin n); destruct (a n); simpl in *; try nra.
+  - intros n. specialize (Hnonneg n); simpl in *; destruct (a n); simpl in *; try nra.
+Qed.
+
+Lemma is_lim_seq_unique_series a v:
+  is_series a v → Lim_seq (sum_n a) = v.
+Proof.
+  intros. apply is_lim_seq_unique. rewrite //=.
+Qed.
+
+Lemma Rbar_le_fin' x y: 0 <= y → Rbar_le x y → Rle x (real y).
+Proof.
+  rewrite /Rbar_le. destruct x => //=.
+Qed.
+
+Lemma is_lim_seq_pos a (v: R):
+  (∀ n, a n >= 0) →
+  is_lim_seq a v →
+  0 <= v.
+Proof.
+  rewrite /is_lim_seq => Hn; intros.
+  cut (Rbar_le 0 v); first by auto.
+  apply (@filterlim_le _ eventually _ (λ x, 0) a); auto.
+  - exists O; intros. apply Rge_le; auto.
+  - apply filterlim_const.
+Qed.
+
+Lemma is_series_partial_pos a n v:
+  (∀ n, a n >= 0) →
+  is_series a v →
+  sum_n a n <= v.
+Proof.
+  intros Hpos His_series.
+  assert (Hpos' : ∀ n : nat, sum_n a n >= 0).
+  { intros n'. induction n' => //=; rewrite ?sum_O ?sum_Sn; eauto.
+    specialize (Hpos (S n')). rewrite /plus//=. nra. }
+  replace (sum_n a n) with (real (sum_n a n)) by auto.
+  rewrite -(is_series_unique _ _ His_series).
+  eapply Rbar_le_fin'.
+  - case_eq (Lim_seq (sum_n a)) => //=; try nra.
+    intros r Heq.
+    rewrite /is_series in His_series.
+    assert (ex_lim_seq (sum_n a)).
+    { exists v. eauto. }
+    eapply is_lim_seq_pos; eauto.
+    rewrite -Heq. apply Lim_seq_correct; eauto.
+  -  rewrite -Lim_seq_const.
+     case_eq (Lim_seq (sum_n a)) => //=; try nra.
+     * intros r Heq. rewrite -Heq.
+       apply Lim_seq_le_loc. exists n.
+       intros m; induction 1.
+       ** apply Rle_refl.
+       ** rewrite sum_Sn /plus//=. specialize (Hpos (S m)). nra.
+     * intros Heq_infty. apply is_lim_seq_unique_series in His_series. exfalso.
+       rewrite Heq_infty in His_series. congruence.
+     * intros Heq_infty. apply is_lim_seq_unique_series in His_series. exfalso.
+       rewrite Heq_infty in His_series. congruence.
+Qed.
+
+Lemma sum_n_partial_pos a :
+  (∀ n, a n >= 0) →
+   ∀ n : nat, sum_n a n >= 0.
+Proof.
+  intros Hpos n'; induction n' => //=; rewrite ?sum_O ?sum_Sn; eauto.
+    specialize (Hpos (S n')). rewrite /plus//=. nra.
+Qed.
+
+Lemma sum_n_pos a (n: nat):
+  (∀ n, a n >= 0) →
+  0 <= sum_n a n.
+Proof.
+  intros Hge. induction n => //=.
+  - rewrite sum_O. by apply Rge_le.
+  - rewrite sum_Sn /plus//=. specialize (Hge (S n)). nra.
+Qed.
+
+Lemma sum_n_strict_pos a (n: nat):
+  (∀ n, a n >= 0) →
+  a n > 0 →
+  0 < sum_n a n.
+Proof.
+  intros Hge Hgt.
+  destruct n => //=.
+  - rewrite sum_O. nra.
+  - rewrite sum_Sn /plus//=. specialize (sum_n_pos a n Hge).
+    nra.
+Qed.
+
+Lemma Lim_seq_pos a:
+  (∀ n, a n >= 0) →
+  0 <= Lim_seq a.
+Proof.
+  intros.
+  cut (Rbar_le 0 (Lim_seq a)).
+  { rewrite //=. rewrite /real. destruct Lim_seq; nra. }
+  rewrite -Lim_seq_const. apply Lim_seq_le_loc.
+  exists O. intros. apply Rge_le; auto.
+Qed.
+
+Lemma Series_partial_pos a (n: nat):
+  (∀ n, a n >= 0) →
+  ex_finite_lim_seq (sum_n a) →
+  sum_n a n <= Series a.
+Proof.
+  intros Hpos Hfin.
+  specialize (sum_n_partial_pos a Hpos) => Hpos'.
+  replace (sum_n a n) with (real (sum_n a n)) by auto.
+  eapply Rbar_le_fin'.
+  - case_eq (Lim_seq (sum_n a)) => //=; try nra.
+    intros r Heq'.
+    eapply Rle_trans; first apply Lim_seq_pos; eauto.
+    move: Heq'. destruct Lim_seq => //=. inversion 1. nra.
+  - destruct Hfin as (?&Hfin).
+    rewrite -Lim_seq_const.
+     case_eq (Lim_seq (sum_n a)) => //=; try nra.
+     * intros r Heq'. rewrite -Heq'.
+       apply Lim_seq_le_loc. exists n.
+       intros m; induction 1.
+       ** apply Rle_refl.
+       ** rewrite sum_Sn /plus//=. specialize (Hpos (S m)). nra.
+     * apply is_lim_seq_unique in Hfin. congruence.
+     * apply is_lim_seq_unique in Hfin. congruence.
+Qed.
+
+Lemma Series_strict_pos a (n: nat):
+  (∀ n, a n >= 0) →
+  a n > 0 →
+  ex_finite_lim_seq (sum_n a) →
+  0 < Series a.
+Proof.
+  intros. eapply Rlt_le_trans; last eapply Series_partial_pos; eauto.
+  eapply sum_n_strict_pos; eauto.
+Qed.
+
+Lemma is_series_nonneg_0_inv a :
+  (∀ n, 0 <= a n) ->
+  is_series a 0 →
+  ∀ n, a n = 0.
+Proof.
+  intros Hnonneg His.
+  apply not_ex_not_all.
+  intros (n&Hneq).
+  assert (0 < Series a).
+  {
+    apply (Series_strict_pos _ n).
+    - intros n0. specialize (Hnonneg n0). nra.
+    - specialize (Hnonneg n). nra.
+    - exists 0. eauto.
+  }
+  apply is_series_unique in His. nra.
+Qed.
+
+Lemma enn_is_series_0_inv (a : nat -> Rbar) :
+  enn_is_series a 0 ->
+  ∀ n, a n = Finite 0.
+Proof.
+  intros (Hnonneg&Hfin&His).
+  intros n.
+  rewrite /is_finite in Hfin.
+  rewrite -Hfin. f_equal.
+  eapply is_series_nonneg_0_inv in His; eauto.
+  intros n0. specialize (Hnonneg n0). simpl in Hnonneg.
+  destruct (a n0); simpl; try nra; eauto.
+Qed.
+
+Lemma enn_is_series_finite_nonneg (a : nat -> Rbar) (r: R) :
+  enn_is_series a r ->
+  0 <= r.
+Proof.
+  intros (Hnonneg&Hfin&His).
+  replace r with (Series a); last first.
+  { apply is_series_unique; eauto. }
+  rewrite -(Series_0 (λ n, 0)); last auto.
+  apply Series_le.
+  { intros n. specialize (Hnonneg n). simpl in Hnonneg.
+    destruct (a n); simpl in *; eauto; nra. }
+  eexists; eauto.
+Qed.
+
+Lemma Rbar_mult_p_infty_fin_pos_l r :
+  0 < r ->
+  Rbar_mult p_infty r = p_infty.
+Proof.
+  intros Hgt. rewrite //=. destruct Rle_dec; try destruct Rle_lt_or_eq_dec; try nra. auto.
+Qed.
+
+Lemma not_ex_series_non_zero a:
+  ¬ ex_series a -> ∃ n, a n ≠ 0.
+Proof.
+  intros Hex.
+  apply not_all_not_ex. intros Hneq.
+  apply Hex. eapply (ex_series_ext (λ n, 0)); last first.
+  { exists 0. eapply is_series_0; eauto. }
+  intros n. specialize (Hneq n).
+  symmetry. by apply NNPP.
+Qed.
+
+Lemma enn_is_series_scal (c : Rbar) (a : nat -> Rbar) (l : Rbar) :
+  Rbar_le 0 c ->
+  enn_is_series a l -> enn_is_series (fun n => Rbar_mult c (a n)) (Rbar_mult c l).
+Proof.
+  intros Hnonneg His.
+  destruct l as [r | |]; last by (exfalso; eapply His).
+  - assert (0 <= r) as [Hpos|HR0].
+    { eapply enn_is_series_finite_nonneg; eauto. }
+    * destruct c as [r' | |]; last by (exfalso; eauto).
+      ** simpl. destruct His as (Hnonneg'&Hfin&His).
+         split; [| split]; eauto.
+         *** intros n. specialize (Hnonneg' n). specialize (Hfin n). simpl in *.
+             destruct (a n); simpl in *; try nra; rewrite //= in Hfin; eauto.
+         *** intros n. specialize (Hnonneg' n). specialize (Hfin n). simpl in *.
+             destruct (a n); simpl in *; try nra; rewrite //= in Hfin; eauto.
+         *** eapply (is_series_ext (λ n, r' * (a n))).
+             { intros n. specialize (Hnonneg' n). specialize (Hfin n). simpl in *.
+               destruct (a n); simpl in *; try nra; rewrite //= in Hfin; eauto. }
+             apply: is_series_scal; eauto.
+      ** rewrite Rbar_mult_p_infty_fin_pos_l; auto.
+         split.
+         {
+           destruct His as (Hnonneg'&?).
+           intros n. specialize (Hnonneg' n).
+           destruct (a n); simpl in *; try nra; auto.
+           { destruct Rle_dec; simpl in *; try auto. destruct Rle_lt_or_eq_dec; simpl in *; try auto.
+             nra. }
+         }
+         left.
+         apply enn_is_series_strict_pos_inv in His; eauto.
+         destruct His as (n&Hpos'). exists n.
+         destruct (a n); simpl in *; try nra; auto.
+         { destruct Rle_dec; simpl in *; try auto; try nra.
+           destruct Rle_lt_or_eq_dec; simpl in *; try auto.
+           nra. }
+    * rewrite -HR0. rewrite Rbar_mult_0_r. apply enn_is_series_0.
+      intros n. subst.
+      rewrite enn_is_series_0_inv //= Rbar_mult_0_r. reflexivity.
+  - destruct c as [r | |]; last by (exfalso; eauto).
+    * destruct Hnonneg as [Hpos|HR0].
+      { destruct His as (Hnonneg&His).
+        split.
+        { intros n. specialize (Hnonneg n).
+          destruct (a n); simpl in *; try auto; try nra.
+          destruct Rle_dec; try nra.
+          destruct Rle_lt_or_eq_dec; try nra.
+        }
+        rewrite Rbar_mult_comm. rewrite Rbar_mult_p_infty_fin_pos_l; auto.
+        apply enn_lim_p_infty_strengthen in His.
+        destruct His as [Hp_infty|(Hdiverge&Hfin)].
+        { left. destruct Hp_infty as (n&Heq). exists n.
+          rewrite Heq Rbar_mult_comm Rbar_mult_p_infty_fin_pos_l //=.
+        }
+        {
+          right. intros Hex. Search ex_series "scal".
+          apply Hdiverge.
+          apply (ex_series_scal_l (Rinv r) _) in Hex.
+          eapply ex_series_ext; try eassumption.
+          intros n. rewrite /scal //= /mult //=.
+          specialize (Hfin n). destruct (a n); simpl in *; try congruence; [].
+          rewrite -Rmult_assoc. Search Rmult Rinv.
+          rewrite Rinv_l; nra.
+        }
+        { eauto. }
+      }
+      {
+        rewrite -HR0. rewrite Rbar_mult_0_l.
+        apply enn_is_series_0. intros. rewrite Rbar_mult_0_l //=.
+      }
+    * simpl.
+      destruct His as (Hnonneg'&His).
+      apply enn_lim_p_infty_strengthen in His; auto.
+      split.
+      { intros n. specialize (Hnonneg' n).
+        destruct (a n); simpl in *; try nra; auto.
+        { destruct Rle_dec; simpl in *; try auto. destruct Rle_lt_or_eq_dec; simpl in *; try auto.
+          nra. }
+      }
+      destruct His as [Hp_infty|(Hdiverge&Hfin)].
+      { left. destruct Hp_infty as (n&Heq). exists n.
+        rewrite Heq //=. }
+      { apply not_ex_series_non_zero in Hdiverge. left.
+        destruct Hdiverge as (n&Hneq0). exists n.
+        specialize (Hnonneg' n).
+        destruct (a n); simpl in *; try nra; auto.
+        { destruct Rle_dec; simpl in *; try auto; try nra.
+          destruct Rle_lt_or_eq_dec; simpl in *; try auto.
+          nra. }
+      }
+Qed.
+
+Lemma enn_is_series_scal_l : forall (c : Rbar) (a : nat -> Rbar) (l : Rbar),
+  Rbar_le 0 c ->
+  enn_is_series a l -> enn_is_series (fun n => Rbar_mult c (a n)) (Rbar_mult c l).
+exact enn_is_series_scal.
+Qed.
+
+(* 
 Lemma ex_series_scal (c : K) (a : nat -> V) :
   ex_series a -> ex_series (fun n => scal c (a n)).
 Proof.
@@ -670,7 +1000,6 @@ Lemma ex_series_scal_l : forall (c : K) (a : nat -> V),
 exact ex_series_scal.
 Qed.
 
-End Properties3.
 
 Lemma Series_scal_l (c : R) (a : nat -> R) :
   Series (fun n => c * a n) = c * Series a.
