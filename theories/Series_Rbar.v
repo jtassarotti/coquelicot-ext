@@ -986,70 +986,65 @@ Lemma enn_is_series_scal_l : forall (c : Rbar) (a : nat -> Rbar) (l : Rbar),
 exact enn_is_series_scal.
 Qed.
 
-(* 
-Lemma ex_series_scal (c : K) (a : nat -> V) :
-  ex_series a -> ex_series (fun n => scal c (a n)).
+Lemma enn_ex_series_scal (c : Rbar) (a : nat -> Rbar) :
+  Rbar_le 0 c ->
+  enn_ex_series a -> enn_ex_series (fun n => Rbar_mult c (a n)).
 Proof.
-  move => [l Ha].
-  exists (scal c l).
-  by apply: is_series_scal_l.
+  move => ? [l Ha].
+  exists (Rbar_mult c l).
+  by apply: enn_is_series_scal_l.
 Qed.
 
-Lemma ex_series_scal_l : forall (c : K) (a : nat -> V),
-  ex_series a -> ex_series (fun n => scal c (a n)).
-exact ex_series_scal.
+Lemma enn_ex_series_scal_l : forall (c : Rbar) (a : nat -> Rbar),
+  Rbar_le 0 c ->
+  enn_ex_series a -> enn_ex_series (fun n => Rbar_mult c (a n)).
+exact enn_ex_series_scal.
 Qed.
 
 
-Lemma Series_scal_l (c : R) (a : nat -> R) :
-  Series (fun n => c * a n) = c * Series a.
+Lemma enn_Series_scal_l (c : Rbar) (a : nat -> Rbar) :
+  enn_ex_series a ->
+  Rbar_le 0 c ->
+  enn_Series (fun n => Rbar_mult c (a n)) = Rbar_mult c (enn_Series a).
 Proof.
-  rewrite /Series.
-  have H0 : (forall x, c * Rbar.real x = Rbar.real (Rbar.Rbar_mult (Rbar.Finite c) x)).
-  case: (Req_dec c 0) => [-> | Hk].
-  case => [x | | ] //= ; rewrite Rmult_0_l.
-  case: Rle_dec (Rle_refl 0) => //= H0 _.
-  case: Rle_lt_or_eq_dec (Rlt_irrefl 0) => //= _ _.
-  case: Rle_dec (Rle_refl 0) => //= H0 _.
-  case: Rle_lt_or_eq_dec (Rlt_irrefl 0) => //= _ _.
-  case => [x | | ] //= ; rewrite Rmult_0_r.
-  case: Rle_dec => //= H0.
-  case: Rle_lt_or_eq_dec => //=.
-  case: Rle_dec => //= H0.
-  case: Rle_lt_or_eq_dec => //=.
-  rewrite H0 -(Lim_seq_scal_l _ c).
-  apply f_equal, Lim_seq_ext.
-  elim => [ | n IH].
-  rewrite !sum_O ; ring.
-  rewrite !sum_Sn IH /plus /=.
-  ring.
+  intros Hex Hnonneg.
+  apply enn_is_series_unique.
+  apply enn_is_series_scal_l; auto.
+  apply enn_Series_correct.
+  auto.
 Qed.
 
-Lemma is_series_scal_r (c : R) (a : nat -> R) (l : R) :
-  is_series  a l -> is_series  (fun n => (a n) * c) (l * c).
+Lemma enn_is_series_scal_r (c : Rbar) (a : nat -> Rbar) (l : Rbar) :
+  Rbar_le 0 c ->
+  enn_is_series a l -> enn_is_series  (fun n => Rbar_mult (a n) c) (Rbar_mult l c).
 Proof.
-  move => Ha.
-  rewrite Rmult_comm.
-  apply is_series_ext with (fun n : nat => c * a n).
-  move => n ; apply Rmult_comm.
-  apply (is_series_scal_l _ _ _ Ha).
-Qed.
-Lemma ex_series_scal_r (c : R) (a : nat -> R) :
-  ex_series  a -> ex_series  (fun n => a n * c).
-Proof.
-  intros [l Ha].
-  exists (l * c).
-  by apply is_series_scal_r.
+  move => Hle Ha.
+  rewrite Rbar_mult_comm.
+  apply enn_is_series_ext with (fun n : nat => Rbar_mult c (a n)).
+  move => n ; apply Rbar_mult_comm.
+  apply (enn_is_series_scal_l _ _ _ Hle Ha).
 Qed.
 
-Lemma Series_scal_r (c : R) (a : nat -> R) :
-  Series (fun n => a n * c) = Series a * c.
+Lemma ex_series_scal_r (c : Rbar) (a : nat -> Rbar) :
+  Rbar_le 0 c ->
+  enn_ex_series a -> enn_ex_series (fun n => Rbar_mult (a n) c).
 Proof.
-  rewrite Rmult_comm -Series_scal_l.
-  apply Series_ext.
-  move => n ; apply Rmult_comm.
+  intros Hle [l Ha].
+  exists (Rbar_mult l c).
+  by apply enn_is_series_scal_r.
 Qed.
 
+Lemma enn_Series_scal_r (c : Rbar) (a : nat -> Rbar) :
+  enn_ex_series a ->
+  Rbar_le 0 c ->
+  enn_Series (fun n => Rbar_mult (a n) c) = Rbar_mult (enn_Series a) c.
+Proof.
+  intros. rewrite Rbar_mult_comm -enn_Series_scal_l //=.
+  apply enn_Series_ext.
+  move => n ; apply Rbar_mult_comm.
+Qed.
+
+(*
 Lemma is_series_mult_pos (a b : nat -> R) (la lb : R) :
   is_series  a la -> is_series  b lb ->
   (forall n, 0 <= a n) -> (forall n, 0 <= b n)
