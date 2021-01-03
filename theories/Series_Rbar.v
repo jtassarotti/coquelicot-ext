@@ -192,7 +192,7 @@ Proof.
   { intros. eapply Hnonneg. }
   destruct l.
   - destruct (a O) as [r'| |] eqn:Heq; try (exfalso; congruence).
-    destruct Hlim as (Hfin'&His). split; eauto. Check is_series_incr_1.
+    destruct Hlim as (Hfin'&His). split; eauto.
     apply (is_series_incr_1 (fun k => real (a k))).
     rewrite Heq. eauto.
   - destruct (a O) as [r'| |] eqn:Heq; try (exfalso; congruence).
@@ -943,13 +943,13 @@ Proof.
           rewrite Heq Rbar_mult_comm Rbar_mult_p_infty_fin_pos_l //=.
         }
         {
-          right. intros Hex. Search ex_series "scal".
+          right. intros Hex.
           apply Hdiverge.
           apply (ex_series_scal_l (Rinv r) _) in Hex.
           eapply ex_series_ext; try eassumption.
           intros n. rewrite /scal //= /mult //=.
           specialize (Hfin n). destruct (a n); simpl in *; try congruence; [].
-          rewrite -Rmult_assoc. Search Rmult Rinv.
+          rewrite -Rmult_assoc.
           rewrite Rinv_l; nra.
         }
         { eauto. }
