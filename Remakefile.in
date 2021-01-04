@@ -22,6 +22,7 @@ FILES = \
 	RInt_gen.v \
 	Seq_fct.v \
 	Series.v \
+	Series_Rbar.v \
 	SF_seq.v
 
 OBJS = $(addprefix theories/,$(addsuffix o,$(FILES)))
