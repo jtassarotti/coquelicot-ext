@@ -611,7 +611,7 @@ Qed.
 *)
 
 
-Lemma Series_plus (a b : nat -> Rbar) :
+Lemma enn_Series_plus (a b : nat -> Rbar) :
   enn_ex_series a -> enn_ex_series b
     -> enn_Series (fun n => Rbar_plus (a n) (b n)) = Rbar_plus (enn_Series a) (enn_Series b).
 Proof.
