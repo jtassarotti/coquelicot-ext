@@ -360,6 +360,9 @@ Proof.
   { apply is_series_0. intros n. rewrite Heq //=. }
 Qed.
 
+Lemma enn_Series_0 (a : nat -> Rbar) : (∀ n, a n = Finite 0) → enn_Series a = Finite 0.
+Proof. intros. apply enn_is_series_unique, enn_is_series_0; auto. Qed.
+
 Lemma enn_is_series_finite_nonneg (a : nat -> Rbar) (r: R) :
   enn_is_series a r ->
   0 <= r.
