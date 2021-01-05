@@ -321,7 +321,7 @@ Proof.
 Qed.
 *)
 
-Lemma enn_Series_incr_1 (a : nat -> Rbar) :
+Lemma enn_Series_incr_1' (a : nat -> Rbar) :
   is_finite (a O) ->
   Rbar_le 0 (a O) ->
   enn_ex_series a -> enn_Series a = Rbar_plus (a O) (enn_Series (fun k => a (S k))).
@@ -336,6 +336,77 @@ Proof.
   rewrite Rbar_plus_0_r.
   eapply enn_Series_correct.
   eapply enn_ex_series_incr_1; eauto.
+Qed.
+
+Lemma is_series_0 a: (∀ n, a n = 0) → is_series a 0.
+Proof.
+  intros Ha. apply (is_series_ext (λ x, 0)); auto.
+  rewrite /is_series.
+  apply (filterlim_ext (λ x, 0)).
+  - intros m. rewrite sum_n_const Rmult_0_r //.
+  - apply filterlim_const.
+Qed.
+
+Lemma Series_0 a: (∀ n, a n = 0) → Series a = 0.
+Proof.
+  intros Heq. apply is_series_unique, is_series_0. done.
+Qed.
+
+Lemma enn_is_series_0 (a : nat -> Rbar) : (∀ n, a n = Finite 0) → enn_is_series a 0.
+Proof.
+  intros Heq. split; [| split]; auto.
+  { intros n. rewrite Heq. apply Rbar_le_refl. }
+  { intros n. rewrite Heq. rewrite //=. }
+  { apply is_series_0. intros n. rewrite Heq //=. }
+Qed.
+
+Lemma enn_is_series_finite_nonneg (a : nat -> Rbar) (r: R) :
+  enn_is_series a r ->
+  0 <= r.
+Proof.
+  intros (Hnonneg&Hfin&His).
+  replace r with (Series a); last first.
+  { apply is_series_unique; eauto. }
+  rewrite -(Series_0 (λ n, 0)); last auto.
+  apply Series_le.
+  { intros n. specialize (Hnonneg n). simpl in Hnonneg.
+    destruct (a n); simpl in *; eauto; nra. }
+  eexists; eauto.
+Qed.
+
+Lemma enn_is_series_nonneg (a : nat -> Rbar) (r: Rbar) :
+  enn_is_series a r ->
+  Rbar_le 0 r.
+Proof.
+  destruct r.
+  - apply enn_is_series_finite_nonneg.
+  - simpl. auto.
+  - rewrite /enn_is_series. intuition. 
+Qed.
+
+Lemma enn_Series_nonneg (a : nat -> Rbar) :
+  enn_ex_series a ->
+  Rbar_le 0 (enn_Series a).
+Proof.
+  intros (r&His). eapply enn_is_series_nonneg. erewrite enn_is_series_unique; eauto.
+Qed.
+
+Lemma enn_Series_incr_1 (a : nat -> Rbar) :
+  Rbar_le 0 (a O) ->
+  enn_ex_series a -> enn_Series a = Rbar_plus (a O) (enn_Series (fun k => a (S k))).
+Proof.
+  move => Hnonneg Ha.
+  destruct (a O) as [r | |] eqn:Heq.
+  { rewrite -Heq. eapply enn_Series_incr_1'; rewrite ?Heq //=. }
+  { transitivity p_infty.
+    - apply enn_is_series_unique.
+      destruct Ha as (r'&?&?).
+      split; auto. left. exists O. auto.
+    - apply enn_ex_series_incr_1 in Ha.
+      specialize (enn_Series_nonneg _ Ha) as Hle.
+      destruct (enn_Series _); simpl in *; eauto. intuition.
+  }
+  { simpl in Hnonneg. intuition. }
 Qed.
 
 (*
@@ -636,28 +707,6 @@ Qed.
 
 (** Multiplication by a scalar *)
 
-Lemma is_series_0 a: (∀ n, a n = 0) → is_series a 0.
-Proof.
-  intros Ha. apply (is_series_ext (λ x, 0)); auto.
-  rewrite /is_series.
-  apply (filterlim_ext (λ x, 0)).
-  - intros m. rewrite sum_n_const Rmult_0_r //.
-  - apply filterlim_const.
-Qed.
-
-Lemma Series_0 a: (∀ n, a n = 0) → Series a = 0.
-Proof.
-  intros Heq. apply is_series_unique, is_series_0. done.
-Qed.
-
-Lemma enn_is_series_0 (a : nat -> Rbar) : (∀ n, a n = Finite 0) → enn_is_series a 0.
-Proof.
-  intros Heq. split; [| split]; auto.
-  { intros n. rewrite Heq. apply Rbar_le_refl. }
-  { intros n. rewrite Heq. rewrite //=. }
-  { apply is_series_0. intros n. rewrite Heq //=. }
-Qed.
-
 Lemma Series_strict_pos_inv a:
   (∀ n, a n >= 0) →
   0 < Series a →
@@ -855,20 +904,6 @@ Proof.
   eapply is_series_nonneg_0_inv in His; eauto.
   intros n0. specialize (Hnonneg n0). simpl in Hnonneg.
   destruct (a n0); simpl; try nra; eauto.
-Qed.
-
-Lemma enn_is_series_finite_nonneg (a : nat -> Rbar) (r: R) :
-  enn_is_series a r ->
-  0 <= r.
-Proof.
-  intros (Hnonneg&Hfin&His).
-  replace r with (Series a); last first.
-  { apply is_series_unique; eauto. }
-  rewrite -(Series_0 (λ n, 0)); last auto.
-  apply Series_le.
-  { intros n. specialize (Hnonneg n). simpl in Hnonneg.
-    destruct (a n); simpl in *; eauto; nra. }
-  eexists; eauto.
 Qed.
 
 Lemma Rbar_mult_p_infty_fin_pos_l r :
