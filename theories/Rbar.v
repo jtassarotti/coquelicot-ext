@@ -1140,6 +1140,9 @@ Lemma is_Rbar_sum_O (a : nat -> Rbar) : is_Rbar_sum_n a 0 (a O).
 Proof.
   by apply is_Rbar_sum_n_n.
 Qed.
+Lemma Rbar_sum_O (a : nat -> Rbar) : Rbar_sum_n a 0 = a O.
+Proof. rewrite /Rbar_sum_n Rbar_sum_n_n //=. Qed.
+
 Lemma Rbar_sum_n_Sm' (a : nat -> Rbar) (n m : nat) :
   (n <= S m)%nat -> Rbar_sum_n_m' a n (S m) =
                     match (Rbar_sum_n_m' a n m) with
