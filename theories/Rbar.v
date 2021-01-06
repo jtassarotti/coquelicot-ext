@@ -554,6 +554,24 @@ Proof.
   destruct x as [x | |]; eauto. simpl. f_equal. field.
 Qed.
 
+Lemma Rbar_plus_assoc_opp_finite (x y : Rbar) :
+  is_finite y ->
+  Rbar_plus (Rbar_plus x y) (Rbar_opp y) = x.
+Proof.
+  intros Hfin1.
+  destruct x, y => //=; simpl in *; try intuition; try (f_equal; nra).
+Qed.
+
+Lemma Rbar_plus_assoc_opp_finite' (x y : Rbar) :
+  Rbar_le 0 x ->
+  Rbar_le 0 y ->
+  Rbar_le 0 (Rbar_plus (Rbar_plus x y) (Rbar_opp y)).
+Proof.
+  intros Hle1 Hle2. destruct y; last by (simpl in *; intuition).
+  - rewrite Rbar_plus_assoc_opp_finite //=.
+  - destruct x => //=; try nra.
+Qed.
+
 Lemma Rbar_plus_assoc_finite (x y z : Rbar) :
   is_finite y ->
   is_finite z ->
@@ -1024,6 +1042,14 @@ Lemma ex_Rbar_plus_is_Rbar_plus v1 v2:
   ex_Rbar_plus v1 v2 -> is_Rbar_plus v1 v2 (Rbar_plus v1 v2).
 Proof. rewrite /is_Rbar_plus/ex_Rbar_plus/Rbar_plus. destruct (Rbar_plus' _ _) => //=. Qed.
 
+Lemma ex_Rbar_plus_nonneg v1 v2:
+  Rbar_le 0 v1 ->
+  Rbar_le 0 v2 ->
+  ex_Rbar_plus v1 v2.
+Proof.
+  intros Hle1 Hl2.
+  destruct v1, v2 => //=.
+Qed.
 
 Require Import Iter.
 
@@ -1303,6 +1329,43 @@ Lemma Rbar_sum_n_m'_ext_loc (a b : nat -> Rbar) (n m : nat) :
 Proof.
   intros Heq. rewrite /Rbar_sum_n_m'. apply iter_nat_ext_loc.
   intros; eauto. rewrite Heq //=.
+Qed.
+
+Lemma Rbar_plus_correct' x y : ex_Rbar_plus x y -> Rbar_plus' x y = Some (Rbar_plus x y).
+Proof.
+  rewrite /ex_Rbar_plus/Rbar_plus; destruct (Rbar_plus'); eauto. intuition.
+Qed.
+
+Lemma Rbar_sum_n_m'_nonneg_Some (a : nat -> Rbar) n m:
+  (forall n, Rbar_le 0 (a n)) ->
+  exists v, Rbar_le 0 v /\ Rbar_sum_n_m' a n m = Some v.
+Proof.
+  intros Hnonneg.
+  destruct (Nat.le_decidable n m) as [Hle|Hnle].
+  - induction Hle.
+    * rewrite /Rbar_sum_n_m' iter_nat_point //. eauto.
+      { intros []; auto. destruct r => //=; do 2 f_equal. nra. }
+    * rewrite Rbar_sum_n_Sm'; eauto.
+      destruct IHHle as (v&Hnonneg'&->).
+      { specialize (Hnonneg (S m)).
+        exists (Rbar_plus v (a (S m))).
+        split.
+        * replace (Finite 0) with (Rbar_plus 0 0); last first.
+          { rewrite //=. f_equal; nra. }
+          apply Rbar_plus_le_compat; auto.
+        * apply Rbar_plus_correct'. apply ex_Rbar_plus_nonneg; auto.
+      }
+      exists 0. split; first apply Rbar_le_refl.
+      apply Rbar_sum_n_m'_zero. lia.
+Qed.
+
+Lemma ex_Rbar_sum_n_m_nonneg (a : nat -> Rbar) n m:
+  (forall n, Rbar_le 0 (a n)) ->
+  ex_Rbar_sum_n_m a n m.
+Proof.
+  intros Hnonneg. rewrite /ex_Rbar_sum_n_m.
+  rewrite /is_Rbar_sum_n_m.
+  edestruct Rbar_sum_n_m'_nonneg_Some as (v&?&->); eauto.
 Qed.
 
 Lemma is_Rbar_sum_n_m_ext_loc (a b : nat -> Rbar) (n m : nat) v :
