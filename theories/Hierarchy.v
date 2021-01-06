@@ -1434,6 +1434,21 @@ Qed.
 
 End AbsRing1.
 
+Module TopologicalSpace.
+
+Record mixin_of (M : Type) := Mixin {
+  is_open : (M -> Prop) -> Prop;
+  ax1 : is_open (fun _ => True);
+  ax2 : is_open (fun _ => False);
+  ax3 : forall {A: Type} (Us: A -> (M -> Prop)),
+       (forall a, is_open (Us a)) -> is_open (fun m => exists a, Us a m);
+  ax4 : forall (U1 U2: M -> Prop), is_open U1 -> is_open U2 -> is_open (fun m => U1 m \/ U2 m)
+}.
+
+Notation class_of := mixin_of (only parsing).
+
+End TopologicalSpace.
+
 (** * Uniform spaces defined using balls *)
 
 Module UniformSpace.
@@ -2081,6 +2096,18 @@ intros D E OD OE x [Dx Ex].
 apply filter_and.
 now apply OD.
 now apply OE.
+Qed.
+
+Lemma open_exists :
+  forall I (D : I -> (T -> Prop)),
+  (forall i, open (D i)) ->
+  open (fun x => exists i, D i x).
+Proof.
+intros I D OD x (i&Dx).
+generalize (OD i x Dx).
+apply filter_imp.
+intros y Dy.
+eauto.
 Qed.
 
 Lemma open_or :
