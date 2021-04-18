@@ -5315,6 +5315,102 @@ Qed.
 
 (** * Some Topology on [Rbar] *)
 
+Definition R_to_unit (x : R) := (x * Rabs x) / (1 + (x * x)).
+
+Lemma R_to_unit_range x : -1 < R_to_unit x /\ R_to_unit x < 1.
+Proof.
+  rewrite /R_to_unit. split; last first.
+  - destruct (Rlt_dec x 0); [ rewrite Rabs_left | rewrite Rabs_right ]; try nra.
+    * apply Rlt_div_l; try nra.
+    * apply Rlt_div_l; try nra.
+  - destruct (Rlt_dec x 0); [ rewrite Rabs_left | rewrite Rabs_right ]; try nra.
+    * apply Rlt_div_r; try nra.
+    * apply Rlt_div_r; try nra.
+Qed.
+
+Lemma R_to_unit_lt x y :
+  x < y -> R_to_unit x < R_to_unit y.
+Proof.
+  intros Hlt.
+  rewrite /R_to_unit.
+  apply Rlt_div_l; first nra.
+  assert (y * Rabs y / (1 + y * y) * (1 + x * x) =
+          (y * Rabs y * (1 + x * x)) / (1 + y * y)) as ->.
+  { field. nra. }
+  apply (Rlt_div_r _ _ (1 + y * y)); first nra.
+  destruct (Rlt_dec x 0); destruct (Rlt_dec y 0).
+  { rewrite ?Rabs_left; nra. }
+  { rewrite (Rabs_right y); last nra.
+    rewrite (Rabs_left x); last nra.
+    nra. }
+  { nra. }
+  { rewrite ?Rabs_right; nra. }
+Qed.
+
+Lemma R_to_unit_inj x y :
+  R_to_unit x = R_to_unit y -> x = y.
+Proof.
+  intros Heq.
+  destruct (Rtotal_order x y) as [Hlt|[Heq'|Hgt]]; auto.
+  - apply R_to_unit_lt in Hlt; nra.
+  - apply Rgt_lt, R_to_unit_lt in Hgt; nra.
+Qed.
+
+Definition Rbar_to_unit (a: Rbar) :=
+  match a with
+  | p_infty => 1
+  | m_infty => -1
+  | Finite r => R_to_unit r
+  end.
+
+Lemma Rbar_to_unit_lt x y :
+  Rbar_lt x y -> Rbar_to_unit x < Rbar_to_unit y.
+Proof.
+  destruct x as [r | |]; destruct y as [r' | |] => //=; try nra.
+  - apply R_to_unit_lt.
+  - intros. destruct (R_to_unit_range r); nra.
+  - intros. destruct (R_to_unit_range r'); nra.
+Qed.
+
+Lemma Rbar_to_unit_inj x y :
+  Rbar_to_unit x = Rbar_to_unit y -> x = y.
+Proof.
+  intros Heq.
+  destruct (Rbar_total_order x y) as [[Hlt|Heq']|Hgt]; auto.
+  - apply Rbar_to_unit_lt in Hlt; nra.
+  - apply Rbar_to_unit_lt in Hgt; nra.
+Qed.
+
+Definition Rbar_dist x y := Rabs (Rbar_to_unit x - Rbar_to_unit y).
+
+Lemma Rbar_metric_nonneg x y :
+  0 <= Rbar_dist x y.
+Proof. rewrite /Rbar_dist. apply Rabs_pos. Qed.
+
+Lemma Rbar_metric_eq0 x y :
+  Rbar_dist x y = 0 <-> x = y.
+Proof.
+  split.
+  - intros Heq0.
+    apply Rabs_eq_0 in Heq0.
+    apply Rbar_to_unit_inj; nra.
+  - intros ->. rewrite /Rbar_dist.
+    replace (Rbar_to_unit y - Rbar_to_unit y) with 0 by nra.
+    apply Rabs_R0.
+Qed.
+
+Lemma Rbar_metric_sym x y:
+  Rbar_dist x y = Rbar_dist y x.
+Proof. rewrite /Rbar_dist. apply Rabs_minus_sym. Qed.
+
+Lemma Rbar_metric_triangle x y z :
+  Rbar_dist x z <= Rbar_dist x y + Rbar_dist y z.
+Proof.
+  rewrite /Rbar_dist.
+  eapply Rle_trans; last eapply Rabs_triang.
+  right. f_equal. nra.
+Qed.
+
 Definition Rbar_locally' (a : Rbar) (P : R -> Prop) :=
   match a with
     | Finite a => locally' a P
