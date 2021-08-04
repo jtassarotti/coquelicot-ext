@@ -5431,7 +5431,7 @@ Definition Rbar_UniformSpace_mixin : UniformSpace.mixin_of Rbar.
 Qed.
 
 Canonical Rbar_UniformSpace :=
-  UniformSpace.Pack R R_UniformSpace_mixin R.
+  UniformSpace.Pack Rbar Rbar_UniformSpace_mixin Rbar.
 
 Definition Rbar_locally' (a : Rbar) (P : R -> Prop) :=
   match a with
