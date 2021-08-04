@@ -15,4 +15,6 @@ deps.dot
 *.vok
 *.vos
 *.glob
+*.lia.cache
+*.nra.cache
 .coq-native
