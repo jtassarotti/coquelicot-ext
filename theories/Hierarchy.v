@@ -5350,17 +5350,19 @@ Proof.
     rewrite (Rabs_left y) in Heq; try nra.
 Qed.
 
+Lemma R_to_interval_ineq1 (x : R) : 0 <= x -> -1 < x * x / (1 + x * x) < 1.
+Proof.
+  intros. split.
+  * apply (Rlt_le_trans _ 0); first nra.
+    apply Rdiv_le_0_compat; try nra.
+  * rewrite -Rdiv_lt_1; nra.
+Qed.
+
 Lemma R_to_interval_range x :
   -1 < R_to_interval x < 1.
 Proof.
-  assert (Hle: forall x, 0 <= x -> -1 < x * x / (1 + x * x) < 1).
-  {
-    split.
-    * apply (Rlt_le_trans _ 0); first nra.
-      apply Rdiv_le_0_compat; try nra.
-    * rewrite -Rdiv_lt_1; nra.
-  }
   rewrite /R_to_interval.
+  specialize (R_to_interval_ineq1) => Hle.
   destruct (Rle_dec 0 x).
   - rewrite Rabs_right; try nra. eauto.
   - rewrite Rabs_left; try nra.
@@ -5423,12 +5425,11 @@ Qed.
 Definition Rbar_UniformSpace_mixin : UniformSpace.mixin_of Rbar.
   refine {| UniformSpace.point_of := Finite R0;
             UniformSpace.ball := fun x e y => Rbar_dist x y < e |}.
-  - intros x (eps&Hle) => /=. rewrite Rbar_dist_same_eq_0 //.
-  - intros. rewrite Rbar_dist_sym //=.
-  - intros x y z e1 e2. rewrite /Rbar_dist => Hlt1 Hlt2.
-    specialize (Rbar_dist_triangle x y z) => Hle.
-    rewrite /Rbar_dist in Hle. nra.
-Qed.
+  - abstract (intros x (eps&Hle) => /=; rewrite Rbar_dist_same_eq_0 //).
+  - abstract (intros; rewrite Rbar_dist_sym //=).
+  - abstract (intros x y z e1 e2; rewrite /Rbar_dist => Hlt1 Hlt2;
+              specialize (Rbar_dist_triangle x y z) => Hle; rewrite /Rbar_dist in Hle; nra).
+Defined.
 
 Canonical Rbar_UniformSpace :=
   UniformSpace.Pack Rbar Rbar_UniformSpace_mixin Rbar.
